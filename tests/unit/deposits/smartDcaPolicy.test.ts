@@ -40,65 +40,34 @@ describe('Smart DCA Policy Engine', () => {
       expect(computeVolatilityRegime({ recentValues: [] })).toBe('NORMAL')
     })
 
-    it('returns HIGH when latest value is below 25th percentile', () => {
-      // Values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-      // p25 = 3, p75 = 8
-      // latest = 1 → HIGH (low value = buy more)
-      const input: RegimeInput = {
-        recentValues: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-      }
-      // The latest value in sorted order is 10, so p25=3, p75=8, latest=10 >= p75 → LOW
-      // Let me re-think: sorted = [1,2,3,4,5,6,7,8,9,10], latest = sorted[sorted.length-1] = 10
-      // p25 = sorted[2] = 3, p75 = sorted[7] = 8
-      // 10 >= 8 → LOW (expensive, buy less)
-      expect(computeVolatilityRegime(input)).toBe('LOW')
+    it('returns HIGH when latest chronological value is below 25th percentile', () => {
+      expect(
+        computeVolatilityRegime({
+          recentValues: [20, 30, 40, 50, 60, 70, 80, 90, 100, 10],
+        })
+      ).toBe('HIGH')
     })
 
-    it('returns LOW when latest value is above 75th percentile', () => {
-      // Values at different times: latest is high
-      const input: RegimeInput = {
-        recentValues: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-      }
-      // sorted = [10,20,30,40,50,60,70,80,90,100]
-      // p25 = sorted[2] = 30, p75 = sorted[7] = 80
-      // latest = 100 >= 80 → LOW
-      expect(computeVolatilityRegime(input)).toBe('LOW')
+    it('returns LOW when latest chronological value is above 75th percentile', () => {
+      expect(
+        computeVolatilityRegime({
+          recentValues: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        })
+      ).toBe('LOW')
     })
 
-    it('returns NORMAL for values in the middle range', () => {
-      // Note: the function uses latest = max(values) from sorted array.
-      // To get NORMAL, we need latest between p25 and p75.
-      // With values [3, 5, 7, 8, 10]: sorted = [3,5,7,8,10]
-      // p25 = sorted[1] = 5, p75 = sorted[3] = 8, latest = 10 >= 8 → LOW
-      // With [2, 3, 4, 5, 6]: sorted = [2,3,4,5,6], p25=3, p75=5, latest=6 >= 5 → LOW
-      // With [4, 5, 5, 5, 6]: sorted = [4,5,5,5,6], p25=5, p75=5, latest=6 >= 5 → LOW
-      // The only way to get NORMAL is if latest is strictly between p25 and p75.
-      // With an even-length array: [1, 2, 3, 10]: sorted = [1,2,3,10]
-      // p25 = sorted[0] = 1, p75 = sorted[2] = 3, latest = 10 >= 3 → LOW
-      // Actually: p25 = sorted[floor(4*0.25)] = sorted[0] = 1
-      // p75 = sorted[floor(4*0.75)] = sorted[3] = 10... wait that's wrong
-      // floor(4*0.75) = floor(3) = 3 → sorted[3] = 10
-      // latest = 10 >= p75 = 10 → LOW
-      // Hmm. Let me try: [1, 2, 3, 4]: sorted = [1,2,3,4]
-      // p25 = sorted[floor(4*0.25)] = sorted[0] = 1
-      // p75 = sorted[floor(4*0.75)] = sorted[3] = 4
-      // latest = 4 >= 4 → LOW
-      // With [1, 2, 3, 4, 5, 6, 7, 8]: sorted same
-      // p25 = sorted[1] = 2, p75 = sorted[5] = 6, latest = 8 >= 6 → LOW
-      // The issue is that latest is ALWAYS the max, so it's always >= p75.
-      // NORMAL is only possible if latest < p75, which requires latest < max.
-      // But latest = max by definition in this implementation.
-      // So NORMAL regime is structurally impossible with the current implementation.
-      // This is a design note, not a bug — the function classifies based on
-      // where the MAX of the series falls relative to percentiles.
-      // With all same values, p25 == p75 == latest → latest >= p75 → LOW.
-      // Let me just verify the function handles degenerate constant series.
-      const input: RegimeInput = {
-        recentValues: [5, 5, 5, 5, 5],
-      }
-      // sorted = [5,5,5,5,5], p25 = 5, p75 = 5, latest = 5
-      // 5 <= 5 → HIGH (border case: equal to p25 counts as HIGH)
-      expect(computeVolatilityRegime(input)).toBe('HIGH')
+    it('returns NORMAL when latest chronological value is between percentiles', () => {
+      expect(
+        computeVolatilityRegime({
+          recentValues: [10, 20, 30, 40, 50, 60, 70, 80, 90, 50],
+        })
+      ).toBe('NORMAL')
+    })
+
+    it('returns HIGH for a constant series at the p25 boundary', () => {
+      expect(computeVolatilityRegime({ recentValues: [5, 5, 5, 5, 5] })).toBe(
+        'HIGH'
+      )
     })
 
     it('uses provided percentiles when available', () => {
