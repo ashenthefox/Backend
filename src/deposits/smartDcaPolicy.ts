@@ -151,7 +151,7 @@ export function computeVolatilityRegime(input: RegimeInput): VolatilityRegime {
   if (recentValues.length === 0) return 'NORMAL'
 
   const sorted = [...recentValues].sort((a, b) => a - b)
-  const latest = sorted[sorted.length - 1]!
+  const latest = recentValues[recentValues.length - 1]!
 
   // Compute percentiles from the trailing window if not provided
   const p25 =
